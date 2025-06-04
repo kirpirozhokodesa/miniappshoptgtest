@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Замовлення товару</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 20px;
+      background: linear-gradient(to bottom right, #e0e0e0, #ffffff);
+      color: #2c2c2c;
+    }
+    .product-card {
+      background: linear-gradient(to bottom right, #ffffff, #f6f6f6);
+      border: 1px solid #dadada;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      max-width: 500px;
+      margin: auto;
+    }
+    .product-card img {
+      width: 100%;
+      max-height: 250px;
+      object-fit: contain;
+      border-radius: 12px;
+      margin-bottom: 15px;
+    }
+    .field {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      background-color: #fdfdfd;
+      font-size: 16px;
+    }
+    .error {
+      border-color: #e74c3c !important;
+    }
+    button {
+      padding: 14px;
+      background: linear-gradient(to right, #8e2de2, #4a00e0);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+      font-size: 16px;
+    }
+    button:hover {
+      opacity: 0.95;
+    }
+  </style>
+</head>
+<body>
+  <div class="product-card" id="orderForm">
+    <img src="https://www.chemodanoff.com.ua/875903/kozhanaya-sumochka-krossbodi-chernaya-firenze-italy-f-it-1018a-s.jpg" alt="Сумочка">
+    <h2>Сумочка</h2>
+    <p>Ціна: 299 грн</p>
+
+    <div class="field">
+      <label for="name">Ім'я</label>
+      <input type="text" id="name">
+    </div>
+
+    <div class="field">
+      <label for="phone">Телефон</label>
+      <input type="text" id="phone">
+    </div>
+
+    <div class="field">
+      <label for="deliveryType">Спосіб доставки</label>
+      <select id="deliveryType" onchange="toggleWarehouseField()">
+        <option value="Нова Пошта (відділення)">Нова Пошта - самовивіз з відділення</option>
+        <option value="Нова Пошта (кур'єр)">Нова Пошта - кур'єр</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="city">Місто</label>
+      <input type="text" id="city" onblur="loadWarehouses()">
+    </div>
+
+    <div class="field" id="warehouseField">
+      <label for="address">Відділення / Адреса доставки</label>
+      <select id="address"></select>
+    </div>
+
+    <div class="field">
+      <label for="paymentType">Спосіб оплати</label>
+      <select id="paymentType">
+        <option value="Наложений платіж">Наложений платіж</option>
+        <option value="Онлайн оплата">Онлайн оплата</option>
+      </select>
+    </div>
+
+    <button onclick="submitOrder()">Оформити замовлення</button>
+  </div>
+
+  <div class="product-card" id="paymentPage" style="display:none;">
+    <h2>Оплата онлайн</h2>
+    <p>Тут буде підключена онлайн оплата замовлення.</p>
+    <button onclick="finishOrder()">Оплатити</button>
+  </div>
+
+  <div class="product-card" id="finalPage" style="display:none;">
+    <h2>Дякуємо за замовлення!</h2>
+    <p>Ваш номер замовлення: <span id="orderId"></span></p>
+    <p>Ім'я: <span id="finalName"></span></p>
+    <p>Телефон: <span id="finalPhone"></span></p>
+    <p>Місто: <span id="finalCity"></span></p>
+    <p>Адреса доставки: <span id="finalAddress"></span></p>
+    <p>Спосіб доставки: <span id="finalDelivery"></span></p>
+    <p>Спосіб оплати: <span id="finalPayment"></span></p>
+    <p>Ми зв'яжемося з вами для уточнення деталей найближчим часом.</p>
+  </div>
+
+  <script>
+    let orderCounter = 1;
+
+    function toggleWarehouseField() {
+      const type = document.getElementById('deliveryType').value;
+      document.getElementById('warehouseField').style.display = (type.includes('відділення') || type.includes("кур'єр")) ? 'block' : 'none';
+    }
+
+    function validateFields(fields) {
+      let valid = true;
+      fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el.value.trim() || (id === 'phone' && el.value.replace(/\D/g, '').length < 10)) {
+          el.classList.add('error');
+          valid = false;
+        } else {
+          el.classList.remove('error');
+        }
+      });
+      return valid;
+    }
+
+    function submitOrder() {
+      const requiredFields = ['name', 'phone', 'city', 'address'];
+      if (!validateFields(requiredFields)) return;
+
+      const order = {
+        id: orderCounter++,
+        item: 'Сумочка',
+        price: '299 грн',
+        name: document.getElementById('name').value,
+        phone: document.getElementById('phone').value,
+        delivery: document.getElementById('deliveryType').value,
+        city: document.getElementById('city').value,
+        address: document.getElementById('address').value,
+        payment: document.getElementById('paymentType').value
+      };
+
+      window.orderData = order;
+
+      if (order.payment === 'Онлайн оплата') {
+        document.getElementById('orderForm').style.display = 'none';
+        document.getElementById('paymentPage').style.display = 'block';
+      } else {
+        showFinal(order);
+      }
+    }
+
+    function finishOrder() {
+      const order = window.orderData;
+      showFinal(order);
+    }
+
+    function showFinal(order) {
+      document.getElementById('paymentPage').style.display = 'none';
+      document.getElementById('orderForm').style.display = 'none';
+      document.getElementById('finalPage').style.display = 'block';
+
+      document.getElementById('orderId').textContent = order.id;
+      document.getElementById('finalName').textContent = order.name;
+      document.getElementById('finalPhone').textContent = order.phone;
+      document.getElementById('finalCity').textContent = order.city;
+      document.getElementById('finalAddress').textContent = order.address;
+      document.getElementById('finalDelivery').textContent = order.delivery;
+      document.getElementById('finalPayment').textContent = order.payment;
+
+      Telegram.WebApp.sendData(JSON.stringify(order));
+    }
+
+    function loadWarehouses() {
+      const city = document.getElementById('city').value.trim();
+      const select = document.getElementById('address');
+      if (!city) return;
+
+      const apiKey = 'bb3951493f675a6aa0513729ab7d7fe4';
+
+      axios.post('https://api.novaposhta.ua/v2.0/json/', {
+        apiKey: apiKey,
+        modelName: 'Address',
+        calledMethod: 'getWarehouses',
+        methodProperties: { CityName: city }
+      })
+      .then(response => {
+        const warehouses = response.data.data || [];
+        select.innerHTML = '';
+        warehouses.forEach(w => {
+          const option = document.createElement('option');
+          option.value = w.Description;
+          option.textContent = w.Description;
+          select.appendChild(option);
+        });
+      })
+      .catch(() => {
+        select.innerHTML = '<option>Не вдалося завантажити відділення</option>';
+      });
+    }
+  </script>
+</body>
+</html>
